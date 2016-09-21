@@ -14,7 +14,7 @@ Project goals:
 - [ ] Specify a pool of nameservers to distribute lookups across
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
-- [ ] Tests
+- [x] Tests (basic)
 - [ ] ?? Distributed lookup (i.e. a cluster of `slookup` agents)
 - [ ] ?? R package
 

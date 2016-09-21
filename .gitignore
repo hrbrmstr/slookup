@@ -1,4 +1,6 @@
 slookup
+bin
+bin/*
 
 # Prerequisites
 *.d

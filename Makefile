@@ -11,6 +11,7 @@ uname_V := $(shell sh -c 'uname -v 2>/dev/null || echo not')
 
 CFLAGS = -Wall -Wstrict-prototypes -O3 
 CC = gcc
+LD = gcc
 LDFLAGS = -lresolv
 INSTALLDIR = /usr/local/bin
 
@@ -37,3 +38,7 @@ $(PROG): $(BITS)
 	$(LD) $(LDFLAGS) -o $(PROG) $(BITS)
 
 slookup.o:	slookup.c
+
+test: $(BITS)
+	$(LD) $(LDFLAGS) -o bin/$(PROG) $(BITS)
+	./test.sh
