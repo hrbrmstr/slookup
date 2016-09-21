@@ -35,11 +35,11 @@ install: all
 BITS = slookup.o
 
 $(PROG): $(BITS)
-	$(LD) $(LDFLAGS) -o $(PROG) $(BITS)
+	$(LD) -o $(PROG) $(BITS) $(LDFLAGS) 
 
 slookup.o:	slookup.c
 
 test: $(BITS)
 	mkdir -p bin
-	$(LD) $(LDFLAGS) -o bin/$(PROG) $(BITS)
+	$(LD) -o bin/$(PROG) $(BITS) $(LDFLAGS)
 	./test.sh
