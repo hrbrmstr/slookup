@@ -15,8 +15,8 @@ Project goals:
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
 - [ ] Tests
-- [?] Distributed lookup (i.e. a cluster of `slookup` agents)
-- [?] R package
+- [ ] ?? Distributed lookup (i.e. a cluster of `slookup` agents)
+- [ ] ?? R package
 
 ### Installation
 
