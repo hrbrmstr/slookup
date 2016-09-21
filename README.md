@@ -10,7 +10,7 @@ Project goals:
 
 - [x] macOS support
 - [ ] Enable JSON output
-- [ ] Providie file-based input vs just `stdin`
+- [ ] Provide file-based input vs just `stdin`
 - [ ] Specify a pool of nameservers to distribute lookups across
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
@@ -43,6 +43,9 @@ i.e.
 
     $ echo rud.is | ./slookup -t mx
     rud.is + MX 10 aspmx.l.google.com MX 40 aspmx2.googlemail.com MX 20 alt1.aspmx.l.google.com MX 30 alt2.aspmx.l.google.com
+
+    $ echo "rud.is" | bin/slookup -t NS 
+    rud.is + NS dns.mwebdns.de NS dns.mwebdns.eu NS dns.mwebdns.net
 
 
 ### Output
