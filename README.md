@@ -21,7 +21,13 @@ Project goals:
 
 ### Installation
 
-    $ make && make install
+For now, you need a working `libdb` so the main C file can find `<db.h>`.
+
+    $ make && make test
+
+then, eventually,
+
+    $ make install
 
 The `slookup` binary will be in `/usr/local/bin`.
 
