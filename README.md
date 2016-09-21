@@ -18,6 +18,12 @@ Project goals:
 - [ ] ?? Distributed lookup (i.e. a cluster of `slookup` agents)
 - [ ] ?? R package
 
+### Platforms
+
+This fork of `slookup` has been tested on:
+
+- macOS 10.12 (Sierra)
+- Ubuntu 14.04
 
 ### Installation
 
