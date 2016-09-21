@@ -1,0 +1,99 @@
+
+/*
+ *	slookup.c - dns lookup stream utility
+ *
+ *	Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004
+ *
+ *    This program is free software; you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation; either version 2 of the License, or
+ *    (at your option) any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *	
+ */
+
+
+  slookup is a simple program to do parallelized DNS lookups in a
+convenient way (useful for log parsing scripts and one-liners). It reads
+names (MX/A lookups) or addresses (in dotted-quad format) on stdin and
+writes the results on stdout. One record per line. Beware, output is
+written in the order the DNS replies are received, which is usually
+different from the input order if parallel lookups are done.
+
+To install:
+
+	$ make
+	# make install
+	
+	This puts the binary in /usr/local/bin.
+
+Usage: slookup [-v] [-f <children>] [-p] [-t A|PTR|MX|NS]
+	-v	Verbose
+	-f	Number of children to Fork for Fast parallel lookups
+	-p	Use persistent TCP connection(s) to DNS server
+	-t	Specify query type
+
+  Currently, slookup being a small and dumb program, -v is a NOP.
+
+  Output from slookup comes in the form
+  
+<question> <+|-> <response|error message>
+
+  Question is the string that was asked on stdin. + means that the query
+succeeded, - means that it failed. For failed requests, an error message
+stating the reason is printed. For successful requests, a list of
+responses is printed.
+
+$ echo cache.inet.fi | slookup -t a
+cache.inet.fi + A 192.89.123.14 A 192.89.123.19 A 192.89.123.16 A 192.89.123.21
+$ echo hes.iki.fi | slookup -t mx
+hes.iki.fi + MX 20 blues.hes.iki.fi MX 10 hes.iki.fi
+$ echo 194.251.245.42 | slookup -t ptr
+194.251.245.42 + PTR hes.iki.fi
+$ echo asdf.hes.iki.fi | slookup -t a  
+asdf.hes.iki.fi - Unknown host
+
+  To demonstrate the parallel lookups, one could create a file "foo"
+containing a few names to look up:
+
+$ cat > foo
+hes.iki.fi
+pp.inet.fi
+asdf.hes.iki.fi
+www.inet.fi
+<CTRL-D>
+$
+
+  And then run slookup with a few children several times:
+
+$ slookup -t a -f 4 < foo
+hes.iki.fi + A 194.251.245.42
+pp.inet.fi - No address associated with name
+asdf.hes.iki.fi - Unknown host
+www.inet.fi + A 194.251.244.140
+$ slookup -t a -f 4 < foo
+hes.iki.fi + A 194.251.245.42
+www.inet.fi + A 194.251.244.140
+asdf.hes.iki.fi - Unknown host
+pp.inet.fi - No address associated with name
+$
+
+Tested on systems:
+
+	Solaris 2.6 / UltraSparc / gcc 2.7.2.3
+	RedHat Linux 7.0 / 2.2.17 / glibc-2.1.94 / gcc 2.96
+	Debian sarge / 2.6.8.1 / glibc-2.3.2 / gcc 3.3.5
+	Debian etch / 2.6.15 / glibc-2.3.6 / gcc 4.0.3
+	FreeBSD 5.3-RELEASE / gcc 3.4.2
+	FreeBSD 6.0-RELEASE / gcc 3.4.4
+
+	Will fail on many platforms which miss snprintf().
+
