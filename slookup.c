@@ -82,13 +82,9 @@ pid_t pid[MAXCHILDREN];
  *	upcase
  */
  
-char *strupr(char *s)
-{
+char *strupr(char *s) {
 	char *p;
-	
-	for (p = s; (*p); p++)
-		*p = toupper(*p);
-		
+	for (p = s; (*p); p++) *p = toupper(*p);
 	return s;
 }
 
@@ -96,8 +92,7 @@ char *strupr(char *s)
  *	Convert return values of gethostbyname() to a string
  */
 
-char *h_strerror(int i)
-{
+char *h_strerror(int i) {
 	static char host_not_found[] = "Host not found";
 	static char no_address[] = "No IP address found for name";
 	static char no_recovery[] = "A non-recovable name server error occurred";
@@ -124,8 +119,7 @@ char *h_strerror(int i)
  *	Parse arguments
  */
 
-void parse_args(int argc, char *argv[])
-{
+void parse_args(int argc, char *argv[]) {
 	int s;
 	
 	while ((s = getopt(argc, argv, "f:t:pv?h")) != -1) {
@@ -170,8 +164,7 @@ void parse_args(int argc, char *argv[])
  *	Close pipes
  */
 
-void closeall(void)
-{
+void closeall(void) {
 	int i;
 	if (children) {
 		signal(SIGCHLD, SIG_IGN);
@@ -187,22 +180,16 @@ void closeall(void)
  *	Kill my children
  */
 
-void hunt(void)
-{
-	int i;
-	
-	for (i = 0; i < children; i++)
-		kill(pid[i], 15);
+void hunt(void){
+	for (int i = 0; i < children; i++) kill(pid[i], 15);
 }
 
 /*
  *	Finish
  */
  
-void finish(void)
-{
-	if (children)
-		hunt();
+void finish(void) {
+	if (children) hunt();
 	exit(0);
 }
 
@@ -210,8 +197,7 @@ void finish(void)
  *	Fork children
  */
 
-void rabbit(void)
-{
+void rabbit(void) {
 	int i;
 	int fd[2];
 	
@@ -227,7 +213,7 @@ void rabbit(void)
 		if (pid[i] == 0) {
 			/* child */
 			close(0);
-			dup(fd[0]);
+			(void)dup(fd[0]);
 			close(fd[0]);
 			close(fd[1]);
 			children = 0;
@@ -249,8 +235,7 @@ void rabbit(void)
  *	skip a name in the response
  */
  
-int skipname(u_char *start, u_char *p, u_char *eom)
-{
+int skipname(u_char *start, u_char *p, u_char *eom) {
 	u_char buf[MAXDNAME];
 	int n;
 	
@@ -266,8 +251,7 @@ int skipname(u_char *start, u_char *p, u_char *eom)
  *	skip to start of rr data portion
  */
 int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *class,
-	uint32_t *ttl, u_short *dlen, u_char *eom)
-{
+	             uint32_t *ttl, u_short *dlen, u_char *eom) {
 	u_char *tmp_cp = cp;
 	
 	tmp_cp += skipname(start, tmp_cp, eom);
@@ -283,8 +267,7 @@ int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *class,
  *	MX record lookup
  */
  
-char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen)
-{
+char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	union {
 		HEADER hdr;
 		u_char buf[PACKETSZ];
@@ -297,7 +280,7 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen)
 	u_short type, class, dlen, pref;
 	uint32_t ttl;
 	
-	if ((reslen = res_query(s, C_IN, qtype, (u_char *)&res, sizeof(res))) < 0) {
+	if ((reslen = res_query(s, C_IN, qtype, (unsigned char *)&res, sizeof(res))) < 0) {
 		snprintf(rs, rslen, "%s - %s\n", qs, h_strerror(h_errno));
 		return rs;
 	}
@@ -351,8 +334,7 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen)
  *	Make a lookup
  */
  
-char *lookup(char *qs)
-{
+char *lookup(char *qs) {
 	static char s[MAXLEN];
 	static char rs[MAXLEN];
 	struct hostent *he;
@@ -419,8 +401,7 @@ char *lookup(char *qs)
  *	Main
  */
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	char s[MAXLEN];
 	char *p;
 	int robin = -1;
@@ -440,7 +421,7 @@ int main(int argc, char **argv)
 			robin++;
 			if (robin == children)
 				robin = 0;
-			write(infd[robin], s, strlen(s));
+			(void)write(infd[robin], s, strlen(s));
 		} else {
 			/* if not (or if i'm a child) resolve here */
 			while ((p = strchr(s, '\n')))
