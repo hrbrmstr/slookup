@@ -40,5 +40,6 @@ $(PROG): $(BITS)
 slookup.o:	slookup.c
 
 test: $(BITS)
+	mkdir -p bin
 	$(LD) $(LDFLAGS) -o bin/$(PROG) $(BITS)
 	./test.sh
