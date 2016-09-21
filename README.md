@@ -9,6 +9,7 @@
 Project goals:
 
 - [x] macOS support
+- [ ] Modern `libdb` support (so there's linux compat again)
 - [ ] Enable JSON output
 - [ ] Provide file-based input vs just `stdin`
 - [ ] Specify a pool of nameservers to distribute lookups across
