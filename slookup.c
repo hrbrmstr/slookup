@@ -181,7 +181,8 @@ void closeall(void) {
  */
 
 void hunt(void){
-	for (int i = 0; i < children; i++) kill(pid[i], 15);
+	int i;
+	for (i = 0; i < children; i++) kill(pid[i], 15);
 }
 
 /*
@@ -213,7 +214,7 @@ void rabbit(void) {
 		if (pid[i] == 0) {
 			/* child */
 			close(0);
-			(void)dup(fd[0]);
+			dup(fd[0]);
 			close(fd[0]);
 			close(fd[1]);
 			children = 0;
@@ -421,7 +422,7 @@ int main(int argc, char **argv) {
 			robin++;
 			if (robin == children)
 				robin = 0;
-			(void)write(infd[robin], s, strlen(s));
+			write(infd[robin], s, strlen(s));
 		} else {
 			/* if not (or if i'm a child) resolve here */
 			while ((p = strchr(s, '\n')))
