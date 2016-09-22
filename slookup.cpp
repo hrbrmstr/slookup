@@ -89,8 +89,7 @@ pid_t pid[MAXCHILDREN];
  */
  
 char *strupr(char *s) {
-	char *p;
-	for (p = s; (*p); p++) *p = toupper(*p);
+	for (char *p = s; (*p); p++) *p = toupper(*p);
 	return s;
 }
 
@@ -99,6 +98,7 @@ char *strupr(char *s) {
  */
 
 char *h_strerror(int i) {
+
 	static char host_not_found[] = "Host not found";
 	static char no_address[] = "No IP address found for name";
 	static char no_recovery[] = "A non-recovable name server error occurred";
@@ -119,6 +119,7 @@ char *h_strerror(int i) {
 		default:
 			return unknown_error;
 	}
+
 }
 
 /*
@@ -126,6 +127,7 @@ char *h_strerror(int i) {
  */
 
 void parse_args(int argc, char *argv[]) {
+
 	int s;
 	
 	while ((s = getopt(argc, argv, "f:t:pv?h")) != -1) {
@@ -166,6 +168,7 @@ void parse_args(int argc, char *argv[]) {
 	
 	if (qtype == Q_MX || qtype == Q_NS || qtype == Q_TXT)
 		res_init();
+
 }
 
 /*
@@ -173,6 +176,7 @@ void parse_args(int argc, char *argv[]) {
  */
 
 void close_all(void) {
+
 	int i;
 	if (children) {
 		signal(SIGCHLD, SIG_IGN);
@@ -182,6 +186,7 @@ void close_all(void) {
 	}
 	
 	exit(0);
+
 }
 
 /*
@@ -206,6 +211,7 @@ void finish(void) {
  */
 
 void rabbit(void) {
+
 	int i;
 	int fd[2];
 	
@@ -238,6 +244,7 @@ void rabbit(void) {
 	signal(SIGCHLD, (void (*)(int))&finish);
 	signal(SIGPIPE, (void (*)(int))&finish);
 	signal(SIGSEGV, (void (*)(int))&finish);
+
 }
 
 /*
@@ -245,6 +252,7 @@ void rabbit(void) {
  */
  
 int skipname(u_char *start, u_char *p, u_char *eom) {
+
 	u_char buf[MAXDNAME];
 	int n;
 	
@@ -254,6 +262,7 @@ int skipname(u_char *start, u_char *p, u_char *eom) {
 	}
 	
 	return n;
+
 }
 
 /*
@@ -261,6 +270,7 @@ int skipname(u_char *start, u_char *p, u_char *eom) {
  */
 int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *dclass,
 	             uint32_t *ttl, u_short *dlen, u_char *eom) {
+
 	u_char *tmp_cp = cp;
 	
 	tmp_cp += skipname(start, tmp_cp, eom);
@@ -270,6 +280,7 @@ int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *dclass,
 	GETSHORT(*dlen, tmp_cp);
 	
 	return (tmp_cp - cp);
+
 }
 
 // Issue A queries
@@ -341,6 +352,7 @@ char *lookup_ptr(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 // @param rslen max storage space for rs
 // @return result of query (char *) 
 char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
 	unsigned char query_buffer[MAXLEN];
 	int reslen;
 	ns_msg handle;
@@ -364,6 +376,7 @@ char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
   snprintf(rs, MAXLEN, "%s + TXT %s\n", qs, answer.c_str());
   return(rs);
+
 }
 
 // Issue MX or NS queries
@@ -376,6 +389,7 @@ char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 // @param rslen max storage space for rs
 // @return result of query (char *) 
 char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
 	union {
 		HEADER hdr;
 		u_char buf[PACKETSZ];
@@ -436,6 +450,7 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	
 	strncat(rs, "\n", rslen);
 	return rs;
+
 }
 
 // Query router
@@ -483,6 +498,7 @@ char *lookup(int qtype, char *qs) {
 	default:
 		return(rs);
 	}
+	
 }
 
 /*
