@@ -1,6 +1,6 @@
 # slookup - Parallelized fast DNS lookup tool
 
-`slookup` is a simple program to do parallelized DNS lookups in a convenient way (useful for log parsing scripts and one-liners). It reads names (A/MX/NS lookups) or addresses (in dotted-quad format for PTR) on stdin and writes the results on stdout. One record per line. It can run up to 128 parallel DNS lookup processes (easily overloading a slow DNS server) which makes for Really Fast lookups for a large number of records. Beware, output is written in the order the DNS replies are received, which is usually different from the input order if parallel lookups are done.
+`slookup` is a simple program to do parallelized DNS lookups in a convenient way (useful for log parsing scripts and one-liners). It reads names (A/MX/NS/TXT lookups) or addresses (in dotted-quad format for PTR) on stdin and writes the results on stdout. One record per line. It can run up to 128 parallel DNS lookup processes (easily overloading a slow DNS server) which makes for Really Fast lookups for a large number of records. Beware, output is written in the order the DNS replies are received, which is usually different from the input order if parallel lookups are done.
 
 --------
 
@@ -10,7 +10,7 @@ Project goals:
 
 - [x] macOS support
 - [ ] Enable JSON output
-- [ ] Provide file-based input vs just `stdin`
+- [-] Provide file-based input vs just `stdin`
 - [ ] Specify a pool of nameservers to distribute lookups across
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
@@ -40,7 +40,7 @@ The `slookup` binary will be in `/usr/local/bin`.
 
 ### Usage
 
-    slookup [-f <children>] [-p] [-t A|PTR|MX|NS]
+    slookup [-f <children>] [-p] [-t A|PTR|MX|NS|TXT]
     -f  Number of children to Fork for Fast parallel lookups
     -p  Use persistent TCP connection(s) to DNS server
     -t  Specify query type
@@ -56,8 +56,11 @@ i.e.
     $ echo rud.is | ./slookup -t mx
     rud.is + MX 10 aspmx.l.google.com MX 40 aspmx2.googlemail.com MX 20 alt1.aspmx.l.google.com MX 30 alt2.aspmx.l.google.com
 
-    $ echo "rud.is" | bin/slookup -t NS 
+    $ echo "rud.is" | bin/slookup -t ns
     rud.is + NS dns.mwebdns.de NS dns.mwebdns.eu NS dns.mwebdns.net
+
+    $ echo "rud.is" | bin/slookup -t txt
+    rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo
 
 
 ### Output

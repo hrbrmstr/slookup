@@ -1,8 +1,9 @@
 
 /*
- *	slookup.c - dns lookup stream utility
+ *	slookup.cpp - dns lookup stream utility
  *
- *	Heikki Hannikainen <hessu@hes.iki.fi> 1998
+ *	Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004
+ *  Bob Rudis (2016)
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -21,9 +22,9 @@
  */
 
 
-#define VERSION "1.2"
-#define VERSTR  "slookup version " VERSION " by Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004\n\tThis is free software, redistributable under the GNU GPL v2.\n"
-#define HELPS	"Usage: slookup [-v] [-f <children>] [-p] [-t A|PTR|MX]|NS\n\t-v\tVerbose\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
+#define VERSION "1.3"
+#define VERSTR  "slookup version " VERSION " by Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004 and Bob Rudis (2016)\n\tThis is free software, redistributable under the GNU GPL v2.\n"
+#define HELPS	"Usage: slookup [-v] [-f <children>] [-p] [-t A|PTR|MX]|NS|TXT\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
 #define MAXLEN 8192
 #define MAXCHILDREN 128
 
@@ -65,10 +66,15 @@ typedef unsigned long u64;
 
 #endif
 
+#include <string>
+using namespace std;
+
+// QUERY TYPES
 #define Q_A	1
 #define Q_PTR	2
 #define Q_MX	3
 #define Q_NS	4
+#define Q_TXT 5
 
 int verbose = 0;
 int children = 0;
@@ -137,6 +143,8 @@ void parse_args(int argc, char *argv[]) {
 				qtype = Q_MX;
 			} else if (!strcmp(optarg, "NS")) {
 				qtype = Q_NS;
+			} else if (!strcmp(optarg, "TXT")) {
+				qtype = Q_TXT;
 			} else {
 				fprintf(stderr, "Unknown query type \"%s\", only can do A, PTR, NS or MX\n", optarg);
 				exit(1);
@@ -156,7 +164,7 @@ void parse_args(int argc, char *argv[]) {
 	}
 	}
 	
-	if (qtype == Q_MX || qtype == Q_NS)
+	if (qtype == Q_MX || qtype == Q_NS || qtype == Q_TXT)
 		res_init();
 }
 
@@ -164,7 +172,7 @@ void parse_args(int argc, char *argv[]) {
  *	Close pipes
  */
 
-void closeall(void) {
+void close_all(void) {
 	int i;
 	if (children) {
 		signal(SIGCHLD, SIG_IGN);
@@ -181,8 +189,7 @@ void closeall(void) {
  */
 
 void hunt(void){
-	int i;
-	for (i = 0; i < children; i++) kill(pid[i], 15);
+	for (int i = 0; i < children; i++) kill(pid[i], 15);
 }
 
 /*
@@ -226,7 +233,7 @@ void rabbit(void) {
 	}
 	
 	signal(SIGTERM, (void (*)(int))&finish);
-	signal(SIGHUP, (void (*)(int))&finish);
+	signal(SIGHUP,  (void (*)(int))&finish);
 	signal(SIGCHLD, (void (*)(int))&finish);
 	signal(SIGPIPE, (void (*)(int))&finish);
 	signal(SIGSEGV, (void (*)(int))&finish);
@@ -251,23 +258,122 @@ int skipname(u_char *start, u_char *p, u_char *eom) {
 /*
  *	skip to start of rr data portion
  */
-int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *class,
+int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *dclass,
 	             uint32_t *ttl, u_short *dlen, u_char *eom) {
 	u_char *tmp_cp = cp;
 	
 	tmp_cp += skipname(start, tmp_cp, eom);
 	GETSHORT(*type, tmp_cp);
-	GETSHORT(*class, tmp_cp);
+	GETSHORT(*dclass, tmp_cp);
 	GETLONG(*ttl, tmp_cp);
 	GETSHORT(*dlen, tmp_cp);
 	
 	return (tmp_cp - cp);
 }
 
-/*
- *	MX record lookup
- */
- 
+// Issue A queries
+// 
+// @param qtype type of query Q_MX, Q_NS
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
+char *lookup_a(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
+	struct hostent *he;
+	struct in_addr *sinp;
+	char **p;
+
+	if (!(he = gethostbyname(s))) {
+		snprintf(rs, MAXLEN, "%s - %s\n", qs, h_strerror(h_errno));
+		return(rs);
+	}
+	
+	if (he->h_addrtype != AF_INET) {
+		snprintf(rs, MAXLEN, "%s - Returned unknown address type %d\n", qs, he->h_addrtype);
+		return(rs);
+	}
+	
+	snprintf(rs, MAXLEN, "%s +", qs);
+	for (p = he->h_addr_list; *p; p++) {
+		strncat(rs, " A ", MAXLEN);
+		sinp = (struct in_addr *)*p;
+		strncat(rs, inet_ntoa(*sinp), MAXLEN);
+	}
+	strncat(rs, "\n", MAXLEN);
+	return(rs);
+
+}
+
+// Issue PTR queries
+// 
+// @param qtype type of query Q_MX, Q_NS
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
+char *lookup_ptr(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
+	struct hostent *he;
+	struct in_addr sin;
+
+	if (!inet_aton(s, &sin)) {
+		snprintf(rs, MAXLEN, "%s - Invalid address format\n", qs);
+		return(rs);
+	}
+	
+	if (!(he = gethostbyaddr((char *)&sin, sizeof(struct in_addr), AF_INET))) {
+		snprintf(rs, MAXLEN, "%s - %s\n", qs, h_strerror(h_errno));
+		return(rs);
+	}
+	
+	snprintf(rs, MAXLEN, "%s + PTR %s\n", qs, he->h_name);
+	return(rs);
+
+}
+
+// Issue TXT queries
+// 
+// @param qtype type of query Q_MX, Q_NS
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
+char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+	unsigned char query_buffer[MAXLEN];
+	int reslen;
+	ns_msg handle;
+	ns_rr rr;
+
+	if ((reslen = res_query(s, C_IN, T_TXT, (unsigned char *)query_buffer, MAXLEN)) < 0) {
+  	snprintf(rs, reslen, "%s - dn_expand failed\n", qs);
+		return(rs);
+  }
+
+  string answer;
+
+  reslen = ns_initparse(query_buffer, reslen, &handle);
+  int i;
+  for (i=0; i < ns_msg_count(handle, ns_s_an); i++) {
+    reslen = ns_parserr(&handle, ns_s_an, i, &rr);
+    u_char const *rdata = (u_char*)(ns_rr_rdata(rr));
+    string txt(rdata+1, rdata+1+(int)rdata[0]);
+    answer += txt;
+  }
+
+  snprintf(rs, MAXLEN, "%s + TXT %s\n", qs, answer.c_str());
+  return(rs);
+}
+
+// Issue MX or NS queries
+//
+// Lumped together as their response formats are similar
+// 
+// @param qtype type of query Q_MX, Q_NS
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
 char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	union {
 		HEADER hdr;
@@ -278,12 +384,12 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	u_char *p, *eom;
 	int ancount, qdcount, nmx, n;
 	int maxmx = 30;
-	u_short type, class, dlen, pref;
+	u_short type, dclass, dlen, pref;
 	uint32_t ttl;
 	
 	if ((reslen = res_query(s, C_IN, qtype, (unsigned char *)&res, sizeof(res))) < 0) {
 		snprintf(rs, rslen, "%s - %s\n", qs, h_strerror(h_errno));
-		return rs;
+		return(rs);
 	}
 	
 	eom = res.buf + reslen;
@@ -303,7 +409,7 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	
 	nmx = 0;
 	while ((--ancount >= 0) && (p < eom) && (nmx < maxmx-1)) {
-		p += skiptodata(res.buf, p, &type, &class, &ttl, &dlen, eom);
+		p += skiptodata(res.buf, p, &type, &dclass, &ttl, &dlen, eom);
 		
 		if (type != qtype) {
 			p += dlen;
@@ -331,17 +437,19 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	return rs;
 }
 
-/*
- *	Make a lookup
- */
- 
-char *lookup(char *qs) {
+// Query router
+//
+// Depending on the qtype of query, have one of the lookup_ functions
+// issue the request.
+// 
+// @param qtype type of query Q_A, Q_PTR, Q_MX, Q_NS, Q_TXT
+// @param qs query string 
+// @return result of query (char *)
+char *lookup(int qtype, char *qs) {
+
 	static char s[MAXLEN];
 	static char rs[MAXLEN];
-	struct hostent *he;
-	struct in_addr sin;
-	struct in_addr *sinp;
-	char **p, *sp;
+	char *sp;
 	
 	rs[0] = '\0';
 	
@@ -352,49 +460,27 @@ char *lookup(char *qs) {
 	
 	switch (qtype) {
 	case Q_A:
-		if (!(he = gethostbyname(s))) {
-			snprintf(rs, MAXLEN, "%s - %s\n", qs, h_strerror(h_errno));
-			return rs;
-		}
-		
-		if (he->h_addrtype != AF_INET) {
-			snprintf(rs, MAXLEN, "%s - Returned unknown address type %d\n", qs, he->h_addrtype);
-			return rs;
-		}
-		
-		snprintf(rs, MAXLEN, "%s +", qs);
-		for (p = he->h_addr_list; *p; p++) {
-			strncat(rs, " A ", MAXLEN);
-			sinp = (struct in_addr *)*p;
-			strncat(rs, inet_ntoa(*sinp), MAXLEN);
-		}
-		strncat(rs, "\n", MAXLEN);
-		return rs;
+		lookup_a(T_MX, s, qs, rs, MAXLEN);
+		return(rs);
 		
 	case Q_PTR:
-		if (!inet_aton(s, &sin)) {
-			snprintf(rs, MAXLEN, "%s - Invalid address format\n", qs);
-			return rs;
-		}
-		
-		if (!(he = gethostbyaddr((char *)&sin, sizeof(struct in_addr), AF_INET))) {
-			snprintf(rs, MAXLEN, "%s - %s\n", qs, h_strerror(h_errno));
-			return rs;
-		}
-		
-		snprintf(rs, MAXLEN, "%s + PTR %s\n", qs, he->h_name);
-		return rs;
+		lookup_ptr(T_MX, s, qs, rs, MAXLEN);
+		return(rs);
 		
 	case Q_MX:
 		lookup_mxns(T_MX, s, qs, rs, MAXLEN);
-		return rs;
+		return(rs);
 		
 	case Q_NS:
 		lookup_mxns(T_NS, s, qs, rs, MAXLEN);
-		return rs;
+		return(rs);
+
+	case Q_TXT:
+	  lookup_txt(T_TXT, s, qs, rs, MAXLEN);
+	  return(rs);
 		
 	default:
-		return rs;
+		return(rs);
 	}
 }
 
@@ -403,6 +489,7 @@ char *lookup(char *qs) {
  */
 
 int main(int argc, char **argv) {
+
 	char s[MAXLEN];
 	char *p;
 	int robin = -1;
@@ -410,30 +497,26 @@ int main(int argc, char **argv) {
 	parse_args(argc, argv);
 	
 	/* if we want to fork, then fork */
-	if (children)
-		rabbit();
-	if (!children && persistent)
-		sethostent(1);
+	if (children) rabbit();
+	if (!children && persistent) sethostent(1);
 	
 	while (fgets(s, MAXLEN-1, stdin)) {
 		if (children) {
-			/* if we have children, write to them in a
-			   round-robin fashion */
+			/* if we have children, write to them in a round-robin fashion */
 			robin++;
-			if (robin == children)
-				robin = 0;
+			if (robin == children) robin = 0;
 			write(infd[robin], s, strlen(s));
 		} else {
 			/* if not (or if i'm a child) resolve here */
-			while ((p = strchr(s, '\n')))
-				*p = '\0';
-			fputs(lookup(s), stdout);
+			while ((p = strchr(s, '\n'))) *p = '\0';
+			fputs(lookup(qtype, s), stdout);
 			fflush(stdout);
 		}
 	}
 	
-	closeall(); /* End of file... */
+	close_all(); /* End of file... */
 	
 	return 0; /* Never will... */
+
 }
 

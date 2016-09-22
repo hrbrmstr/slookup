@@ -10,17 +10,17 @@ uname_P := $(shell sh -c 'uname -p 2>/dev/null || echo not')
 uname_V := $(shell sh -c 'uname -v 2>/dev/null || echo not')
 
 CFLAGS = -Wall -Wstrict-prototypes -O3 
-CC = gcc
-LD = gcc
+CC = g++
+LD = g++
 LDFLAGS = -lresolv
 INSTALLDIR = /usr/local/bin
 
 ifeq ($(uname_S),Darwin)
-  CC = clang
-  LD = clang
+  CC = clang++
+  LD = clang++
 endif
 
-.c.o:
+.cpp.o:
 	$(CC) $(CFLAGS) -c $<
 
 clean:
@@ -37,9 +37,9 @@ BITS = slookup.o
 $(PROG): $(BITS)
 	$(LD) -o $(PROG) $(BITS) $(LDFLAGS) 
 
-slookup.o:	slookup.c
+slookup.o:	slookup.cpp
 
 test: $(BITS)
-	mkdir -p bin
-	$(LD) -o bin/$(PROG) $(BITS) $(LDFLAGS)
-	./test.sh
+	@mkdir -p bin
+	@$(LD) -o bin/$(PROG) $(BITS) $(LDFLAGS)
+	@./test.sh

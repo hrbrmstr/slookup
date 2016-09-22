@@ -26,7 +26,7 @@ fi
 
 # MX
 
-TEST_3=`echo rud.is | ./slookup -t mx`
+TEST_3=`echo rud.is | bin/slookup -t mx`
 RESP_3="rud.is + MX 10 aspmx.l.google.com MX 40 aspmx2.googlemail.com MX 20 alt1.aspmx.l.google.com MX 30 alt2.aspmx.l.google.com"
 
 if [ "${TEST_3:7:5}" != "${RESP_3:7:5}" ] ; then
@@ -36,9 +36,9 @@ else
   echo "Test 3: (MX lookup) passed"
 fi
 
-# MX
+# NS
 
-TEST_4=`echo rud.is | ./slookup -t ns`
+TEST_4=`echo rud.is | bin/slookup -t ns`
 RESP_4="rud.is + NS dns.mwebdns.de NS dns.mwebdns.eu NS dns.mwebdns.net"
 
 if [ "${TEST_4:7:5}" != "${RESP_4:7:5}" ] ; then
@@ -48,9 +48,18 @@ else
   echo "Test 4: (NS lookup) passed"
 fi
 
+# TXT
+
+TEST_5=`echo rud.is | bin/slookup -t txt`
+RESP_5="rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo"
+
+if [ "$TEST_5" != "$RESP_5" ] ; then
+  echo "Test 5: (TXT lookup) failed"
+  exit 1
+else 
+  echo "Test 5: (TXT lookup) passed"
+fi
+
 echo
 echo "All tests succeeded"
 exit 0
-
-
-liono:slookup bob$ echo "rud.is" | bin/slookup -t ns
