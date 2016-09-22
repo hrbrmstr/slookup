@@ -10,7 +10,7 @@ Project goals:
 
 - [x] macOS support
 - [ ] Enable JSON output
-- [-] Provide file-based input vs just `stdin`
+- [ ] Provide file-based input vs just `stdin`
 - [ ] Specify a pool of nameservers to distribute lookups across
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
