@@ -221,7 +221,8 @@ void rabbit(void) {
 		if (pid[i] == 0) {
 			/* child */
 			close(0);
-			dup(fd[0]);
+			int ret = dup(fd[0]);
+			if (ret == -1) fprintf(stderr, "error in file descriptor: %s\n", strerror(errno));
 			close(fd[0]);
 			close(fd[1]);
 			children = 0;
@@ -382,7 +383,7 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	u_char buf[MAXLEN];
 	int reslen;
 	u_char *p, *eom;
-	int ancount, qdcount, nmx, n;
+	int nmx, n;
 	int maxmx = 30;
 	u_short type, dclass, dlen, pref;
 	uint32_t ttl;
@@ -395,8 +396,8 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 	eom = res.buf + reslen;
 	p = res.buf + sizeof(HEADER);
 	
-	ancount = ntohs(res.hdr.ancount);
-	qdcount = ntohs(res.hdr.qdcount);
+	int ancount = ntohs(res.hdr.ancount);
+	// int qdcount = ntohs(res.hdr.qdcount);
 	
 	if (res.hdr.rcode != NOERROR || ancount == 0) {
 		snprintf(rs, rslen, "%s - trouble: %s\n", qs, h_strerror(h_errno));
@@ -505,7 +506,8 @@ int main(int argc, char **argv) {
 			/* if we have children, write to them in a round-robin fashion */
 			robin++;
 			if (robin == children) robin = 0;
-			write(infd[robin], s, strlen(s));
+			ssize_t ret = write(infd[robin], s, strlen(s));
+			if (ret == -1) fprintf(stderr, "error writing to file: %s\n", strerror(errno));
 		} else {
 			/* if not (or if i'm a child) resolve here */
 			while ((p = strchr(s, '\n'))) *p = '\0';
