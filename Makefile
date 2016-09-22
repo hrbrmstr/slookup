@@ -9,7 +9,7 @@ uname_R := $(shell sh -c 'uname -r 2>/dev/null || echo not')
 uname_P := $(shell sh -c 'uname -p 2>/dev/null || echo not')
 uname_V := $(shell sh -c 'uname -v 2>/dev/null || echo not')
 
-CFLAGS = -Wall -Wstrict-prototypes -O3 
+CFLAGS = -Wall -O3 
 CC = g++
 LD = g++
 LDFLAGS = -lresolv
