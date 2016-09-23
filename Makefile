@@ -10,14 +10,19 @@ uname_P := $(shell sh -c 'uname -p 2>/dev/null || echo not')
 uname_V := $(shell sh -c 'uname -v 2>/dev/null || echo not')
 
 CFLAGS = -Wall -O3 
-CC = g++
-LD = g++
 LDFLAGS = -lresolv
 INSTALLDIR = /usr/local/bin
 
+ifdef CXX
+CC = $(CXX)
+LD = $(CXX)
+else 
+CC = g++
+LD = g++
 ifeq ($(uname_S),Darwin)
   CC = clang++
   LD = clang++
+endif
 endif
 
 .cpp.o:

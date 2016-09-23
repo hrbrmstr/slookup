@@ -1,0 +1,19 @@
+language: cpp
+sudo: required
+dist: trusty
+compiler:
+- clang
+- gcc
+os:
+- linux
+- osx
+addons:
+  apt:
+    packages:
+      - libdb-dev
+before_install:
+- echo $LANG
+- echo $LC_ALL
+notifications:
+  email:
+    - bob@rud.is
