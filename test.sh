@@ -70,20 +70,32 @@ else
   echo "Test 6: (CNAME lookup) passed"
 fi
 
+
+TEST_7=`echo rud.is | bin/slookup -t soa`
+RESP_7="rud.is + SOA dns.mwebdns.de hostmaster.mandoraweb.de 2010012630 10800 3600 604800 86400"
+
+if [ "$TEST_7" != "$RESP_7" ] ; then
+  echo "Test 7: (SOA lookup) failed"
+  exit 1
+else 
+  echo "Test 7: (SOA lookup) passed"
+fi
+
+
 tempfoo=`basename $0`
 TMPFILE=`mktemp /tmp/${tempfoo}.XXXXXX` || exit 1
 
 echo "rud.is" > $TMPFILE
 
-TEST_7=`bin/slookup -t txt -i $TMPFILE`
-RESP_7="rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo"
+TEST_8=`bin/slookup -t txt -i $TMPFILE`
+RESP_8="rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo"
 
-if [ "$TEST_7" != "$RESP_7" ] ; then
-  echo "Test 7: (file input) failed"
+if [ "$TEST_8" != "$RESP_8" ] ; then
+  echo "Test 8: (file input) failed"
   unlink $TMPFILE
   exit 1
 else 
-  echo "Test 7: (file input) passed"
+  echo "Test 8: (file input) passed"
   unlink $TMPFILE
 fi
 

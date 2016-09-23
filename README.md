@@ -1,6 +1,6 @@
 # slookup - Parallelized fast DNS lookup tool
 
-`slookup` is a simple program to do parallelized DNS lookups in a convenient way (useful for log parsing scripts and one-liners). It reads names (A/MX/NS/TXT lookups) or addresses (in dotted-quad format for PTR) on stdin and writes the results on stdout. One record per line. It can run up to 128 parallel DNS lookup processes (easily overloading a slow DNS server) which makes for Really Fast lookups for a large number of records. Beware, output is written in the order the DNS replies are received, which is usually different from the input order if parallel lookups are done.
+`slookup` is a simple program to do parallelized DNS lookups in a convenient way (useful for log parsing scripts and one-liners). It reads names (A/MX/NS/TXT/CNAME/SOA lookups) or addresses (in dotted-quad format for PTR) on stdin or from a file and writes the results on stdout. One record per line. It can run up to 128 parallel DNS lookup processes (easily overloading a slow DNS server) which makes for Really Fast lookups for a large number of records. Beware, output is written in the order the DNS replies are received, which is usually different from the input order if parallel lookups are done.
 
 --------
 
@@ -31,16 +31,18 @@ For now, you need a working `libdb` so the main C file can find `<db.h>`.
 
     $ make && make test
 
-then, eventually,
+which will place a `slookup` binary in ./bin
+
+Then, eventually,
 
     $ make install
 
-The `slookup` binary will be in `/usr/local/bin`.
+which will place the `slookup` binary in `/usr/local/bin`.
 
 
 ### Usage
 
-    slookup [-f <children>] [-p] [-t A|PTR|MX|NS|TXT]
+    slookup [-f <children>] [-p] [-t A|PTR|MX|NS|TXT|CNAME|SOA]
     -f  Number of children to Fork for Fast parallel lookups
     -p  Use persistent TCP connection(s) to DNS server
     -t  Specify query type
@@ -62,6 +64,11 @@ i.e.
     $ echo "rud.is" | bin/slookup -t txt
     rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo
 
+    $ echo www.github.com | bin/slookup -t cname
+    www.github.com + CNAME github.com
+  
+    $ echo "rud.is" | bin/slookup -t soa
+    rud.is + SOA dns.mwebdns.de hostmaster.mandoraweb.de 2010012630 10800 3600 604800 86400
 
 ### Output
 

@@ -24,7 +24,7 @@
 
 #define VERSION "1.3"
 #define VERSTR  "slookup version " VERSION " by Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004 and Bob Rudis <bob@rud.is> (2016)\n\tThis is free software, redistributable under the GNU GPL v2.\n"
-#define HELPS	"Usage: slookup [-f <children>] [-i file] [-p] [-t A|PTR|MX]|NS|TXT|CNAME]\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-i\tFilename to read from instead of stdin\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
+#define HELPS	"Usage: slookup [-f <children>] [-i file] [-p] [-t A|PTR|MX]|NS|TXT|CNAME|SOA]\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-i\tFilename to read from instead of stdin\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
 #define MAXLEN 8192
 #define MAXCHILDREN 128
 
@@ -76,6 +76,7 @@ using namespace std;
 #define Q_NS	4
 #define Q_TXT 5
 #define Q_CNAME 6
+#define Q_SOA 7
 
 int verbose = 0;
 int children = 0;
@@ -152,6 +153,8 @@ void parse_args(int argc, char *argv[]) {
 					qtype = Q_TXT;
 				} else if (!strcmp(optarg, "CNAME")) {
 					qtype = Q_CNAME;
+				} else if (!strcmp(optarg, "SOA")) {
+					qtype = Q_SOA;
 				} else {
 					fprintf(stderr, "Unknown query type \"%s\", only can do A, PTR, NS, MX, TXT or CNAME\n", optarg);
 					exit(1);
@@ -334,6 +337,82 @@ char *lookup_ptr(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
 }
 
+char *lookup_soa(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
+	union {
+		HEADER hdr;
+		u_char buf[PACKETSZ];
+	} res;
+	u_char buf[MAXLEN];
+	u_char buf1[MAXLEN];
+	int reslen;
+	u_char *p, *eom;
+	int nmx, n;
+	int maxmx = 30;
+	u_short type, dclass, dlen;
+	uint32_t ttl;
+	
+	if ((reslen = res_query(s, C_IN, T_SOA, (unsigned char *)&res, sizeof(res))) < 0) {
+		snprintf(rs, rslen, "%s - %s\n", qs, h_strerror(h_errno));
+		return(rs);
+	}
+	
+	eom = res.buf + reslen;
+	p = res.buf + sizeof(HEADER);
+	
+	int ancount = ntohs(res.hdr.ancount);
+	// int qdcount = ntohs(res.hdr.qdcount);
+	
+	if (res.hdr.rcode != NOERROR || ancount == 0) {
+		snprintf(rs, rslen, "%s - trouble: %s\n", qs, h_strerror(h_errno));
+		return rs;
+	}
+	
+	snprintf(rs, rslen, "%s +", qs);
+	
+	p += skipname(res.buf, p, eom) + QFIXEDSZ;
+	
+	nmx = 0;
+	while ((--ancount >= 0) && (p < eom) && (nmx < maxmx-1)) {
+		p += skiptodata(res.buf, p, &type, &dclass, &ttl, &dlen, eom);
+		
+		if (type != qtype) {
+			p += dlen;
+			continue;
+		}
+			
+		if ((n = dn_expand(res.buf, eom, p, (char *)buf, MAXDNAME)) < 0) {
+			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
+			return rs;
+		}
+		p += n;
+
+		if ((n = dn_expand(res.buf, eom, p, (char *)buf1, MAXDNAME)) < 0) {
+			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
+			return rs;
+		}
+		p += n;
+
+    u_long serial, refresh, retry, expire, minimum;
+
+    GETLONG(serial, p);
+    GETLONG(refresh, p);
+    GETLONG(retry, p);
+    GETLONG(expire, p);
+    GETLONG(minimum, p);
+
+  	snprintf(rs + strlen(rs), rslen - strlen(rs), " SOA %s %s %ld %ld %ld %ld %ld", 
+  		buf, buf1, serial, refresh, retry, expire, minimum);
+			
+		nmx++;
+
+	}
+	
+	strncat(rs, "\n", rslen);
+	return rs;
+
+}
+
 // Issue TXT queries
 // 
 // @param qtype type of query Q_MX, Q_NS
@@ -421,8 +500,7 @@ char *lookup_mxnscn(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 			continue;
 		}
 		
-		if (type == T_MX)
-			GETSHORT(pref, p);;
+		if (type == T_MX) GETSHORT(pref, p);
 			
 		if ((n = dn_expand(res.buf, eom, p, (char *)buf, MAXDNAME)) < 0) {
 			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
@@ -489,6 +567,10 @@ char *lookup(int qtype, char *qs) {
 
 	case Q_CNAME:
 	  lookup_mxnscn(T_CNAME, s, qs, rs, MAXLEN);
+	  return(rs);
+
+	case Q_SOA:
+	  lookup_soa(T_SOA, s, qs, rs, MAXLEN);
 	  return(rs);
 		
 	default:
