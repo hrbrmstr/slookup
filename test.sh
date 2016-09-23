@@ -60,6 +60,33 @@ else
   echo "Test 5: (TXT lookup) passed"
 fi
 
+TEST_6=`echo www.github.com | bin/slookup -t cname`
+RESP_6="www.github.com + CNAME github.com"
+
+if [ "$TEST_6" != "$RESP_6" ] ; then
+  echo "Test 6: (CNAME lookup) failed"
+  exit 1
+else 
+  echo "Test 6: (CNAME lookup) passed"
+fi
+
+tempfoo=`basename $0`
+TMPFILE=`mktemp /tmp/${tempfoo}.XXXXXX` || exit 1
+
+echo "rud.is" > $TMPFILE
+
+TEST_7=`bin/slookup -t txt -i $TMPFILE`
+RESP_7="rud.is + TXT google-site-verification=bkvck5fphxeqxf_6l0rdtdkk_utgd0bx7lqujg62zoo"
+
+if [ "$TEST_7" != "$RESP_7" ] ; then
+  echo "Test 7: (file input) failed"
+  unlink $TMPFILE
+  exit 1
+else 
+  echo "Test 7: (file input) passed"
+  unlink $TMPFILE
+fi
+
 echo
 echo "All tests succeeded"
 exit 0

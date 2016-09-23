@@ -3,7 +3,7 @@
  *	slookup.cpp - dns lookup stream utility
  *
  *	Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004
- *  Bob Rudis (2016)
+ *  Bob Rudis <bob@rud.is> (2016)
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 
 
 #define VERSION "1.3"
-#define VERSTR  "slookup version " VERSION " by Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004 and Bob Rudis (2016)\n\tThis is free software, redistributable under the GNU GPL v2.\n"
-#define HELPS	"Usage: slookup [-v] [-f <children>] [-p] [-t A|PTR|MX]|NS|TXT\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
+#define VERSTR  "slookup version " VERSION " by Heikki Hannikainen <hessu@hes.iki.fi> 1998, 2004 and Bob Rudis <bob@rud.is> (2016)\n\tThis is free software, redistributable under the GNU GPL v2.\n"
+#define HELPS	"Usage: slookup [-f <children>] [-i file] [-p] [-t A|PTR|MX]|NS|TXT|CNAME]\n\t-f\tNumber of children to Fork for Fast parallel lookups\n\t-i\tFilename to read from instead of stdin\n\t-p\tUse persistent TCP connection(s) to DNS server\n\t-t\tSpecify query type\n"
 #define MAXLEN 8192
 #define MAXCHILDREN 128
 
@@ -75,6 +75,7 @@ using namespace std;
 #define Q_MX	3
 #define Q_NS	4
 #define Q_TXT 5
+#define Q_CNAME 6
 
 int verbose = 0;
 int children = 0;
@@ -84,19 +85,15 @@ int persistent = 0;
 int infd[MAXCHILDREN];
 pid_t pid[MAXCHILDREN];
 
-/*
- *	upcase
- */
- 
+FILE *input;
+
+// upcase
 char *strupr(char *s) {
 	for (char *p = s; (*p); p++) *p = toupper(*p);
 	return s;
 }
 
-/*
- *	Convert return values of gethostbyname() to a string
- */
-
+// Convert return values of gethostbyname() to a string
 char *h_strerror(int i) {
 
 	static char host_not_found[] = "Host not found";
@@ -122,48 +119,56 @@ char *h_strerror(int i) {
 
 }
 
-/*
- *	Parse arguments
- */
-
+// Parse arguments
 void parse_args(int argc, char *argv[]) {
 
 	int s;
+
+	input = stdin;
 	
-	while ((s = getopt(argc, argv, "f:t:pv?h")) != -1) {
-	switch(s) {
-		case 'f':
-			children = atoi(optarg);
-			break;
-		case 't':
-			strupr(optarg);
-			if (!strcmp(optarg, "A")) {
-				qtype = Q_A;
-			} else if (!strcmp(optarg, "PTR")) {
-				qtype = Q_PTR;
-			} else if (!strcmp(optarg, "MX")) {
-				qtype = Q_MX;
-			} else if (!strcmp(optarg, "NS")) {
-				qtype = Q_NS;
-			} else if (!strcmp(optarg, "TXT")) {
-				qtype = Q_TXT;
-			} else {
-				fprintf(stderr, "Unknown query type \"%s\", only can do A, PTR, NS or MX\n", optarg);
+	while ((s = getopt(argc, argv, "f:t:i:pv?h")) != -1) {
+		switch(s) {
+			case 'f':
+				children = atoi(optarg);
+				break;
+			case 'i':
+			  input = fopen(optarg, "r");
+			  if (input == NULL) {
+			  	fprintf(stderr, "Error opening file: %s\n", optarg);
+			  	exit(1);
+			  }
+			  break;
+			case 't':
+				strupr(optarg);
+				if (!strcmp(optarg, "A")) {
+					qtype = Q_A;
+				} else if (!strcmp(optarg, "PTR")) {
+					qtype = Q_PTR;
+				} else if (!strcmp(optarg, "MX")) {
+					qtype = Q_MX;
+				} else if (!strcmp(optarg, "NS")) {
+					qtype = Q_NS;
+				} else if (!strcmp(optarg, "TXT")) {
+					qtype = Q_TXT;
+				} else if (!strcmp(optarg, "CNAME")) {
+					qtype = Q_CNAME;
+				} else {
+					fprintf(stderr, "Unknown query type \"%s\", only can do A, PTR, NS, MX, TXT or CNAME\n", optarg);
+					exit(1);
+				}
+				break;
+			case 'v':
+				verbose = 1;
+				break;
+			case 'p':
+				persistent = 1;
+				break;
+			case '?':
+			case 'h':
+			default :
+				fprintf(stderr, "%s%s", VERSTR, HELPS);
 				exit(1);
-			}
-			break;
-		case 'v':
-			verbose = 1;
-			break;
-		case 'p':
-			persistent = 1;
-			break;
-		case '?':
-		case 'h':
-		default :
-			fprintf(stderr, "%s%s", VERSTR, HELPS);
-			exit(1);
-	}
+		}
 	}
 	
 	if (qtype == Q_MX || qtype == Q_NS || qtype == Q_TXT)
@@ -171,10 +176,7 @@ void parse_args(int argc, char *argv[]) {
 
 }
 
-/*
- *	Close pipes
- */
-
+// Close pipes
 void close_all(void) {
 
 	int i;
@@ -184,32 +186,25 @@ void close_all(void) {
 			close(infd[i]);
 		while (wait(NULL) > 0);
 	}
+
+	int ret = fclose(input);
 	
-	exit(0);
+	exit((ret==0) ? 0 : 1);
 
 }
 
-/*
- *	Kill my children
- */
-
+// Terminate child processes
 void hunt(void){
 	for (int i = 0; i < children; i++) kill(pid[i], 15);
 }
 
-/*
- *	Finish
- */
- 
+// Finish
 void finish(void) {
 	if (children) hunt();
 	exit(0);
 }
 
-/*
- *	Fork children
- */
-
+// Fork children
 void rabbit(void) {
 
 	int i;
@@ -247,10 +242,7 @@ void rabbit(void) {
 
 }
 
-/*
- *	skip a name in the response
- */
- 
+// skip a name in the response
 int skipname(u_char *start, u_char *p, u_char *eom) {
 
 	u_char buf[MAXDNAME];
@@ -265,9 +257,7 @@ int skipname(u_char *start, u_char *p, u_char *eom) {
 
 }
 
-/*
- *	skip to start of rr data portion
- */
+// skip to start of rr data portion
 int skiptodata(u_char *start, u_char *cp, u_short *type, u_short *dclass,
 	             uint32_t *ttl, u_short *dlen, u_char *eom) {
 
@@ -379,7 +369,7 @@ char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
 }
 
-// Issue MX or NS queries
+// Issue MX, NS or CNAME queries
 //
 // Lumped together as their response formats are similar
 // 
@@ -388,7 +378,7 @@ char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 // @param rs string to output
 // @param rslen max storage space for rs
 // @return result of query (char *) 
-char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+char *lookup_mxnscn(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
 	union {
 		HEADER hdr;
@@ -442,6 +432,8 @@ char *lookup_mxns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 		
 		if (type == T_MX)
 			snprintf(rs + strlen(rs), rslen - strlen(rs), " MX %d %s", pref, buf);
+		if (type == T_CNAME)
+			snprintf(rs + strlen(rs), rslen - strlen(rs), " CNAME %s", buf);
 		else
 			snprintf(rs + strlen(rs), rslen - strlen(rs), " NS %s", buf);
 			
@@ -476,35 +468,36 @@ char *lookup(int qtype, char *qs) {
 	
 	switch (qtype) {
 	case Q_A:
-		lookup_a(T_MX, s, qs, rs, MAXLEN);
+		lookup_a(T_A, s, qs, rs, MAXLEN);
 		return(rs);
 		
 	case Q_PTR:
-		lookup_ptr(T_MX, s, qs, rs, MAXLEN);
+		lookup_ptr(T_PTR, s, qs, rs, MAXLEN);
 		return(rs);
 		
 	case Q_MX:
-		lookup_mxns(T_MX, s, qs, rs, MAXLEN);
+		lookup_mxnscn(T_MX, s, qs, rs, MAXLEN);
 		return(rs);
 		
 	case Q_NS:
-		lookup_mxns(T_NS, s, qs, rs, MAXLEN);
+		lookup_mxnscn(T_NS, s, qs, rs, MAXLEN);
 		return(rs);
 
 	case Q_TXT:
 	  lookup_txt(T_TXT, s, qs, rs, MAXLEN);
 	  return(rs);
+
+	case Q_CNAME:
+	  lookup_mxnscn(T_CNAME, s, qs, rs, MAXLEN);
+	  return(rs);
 		
 	default:
 		return(rs);
 	}
-	
+
 }
 
-/*
- *	Main
- */
-
+// Main
 int main(int argc, char **argv) {
 
 	char s[MAXLEN];
@@ -517,24 +510,30 @@ int main(int argc, char **argv) {
 	if (children) rabbit();
 	if (!children && persistent) sethostent(1);
 	
-	while (fgets(s, MAXLEN-1, stdin)) {
+	while (fgets(s, MAXLEN-1, input)) {
+
 		if (children) {
+
 			/* if we have children, write to them in a round-robin fashion */
 			robin++;
 			if (robin == children) robin = 0;
 			ssize_t ret = write(infd[robin], s, strlen(s));
 			if (ret == -1) fprintf(stderr, "error writing to file: %s\n", strerror(errno));
+
 		} else {
+
 			/* if not (or if i'm a child) resolve here */
 			while ((p = strchr(s, '\n'))) *p = '\0';
 			fputs(lookup(qtype, s), stdout);
 			fflush(stdout);
+
 		}
+
 	}
 	
 	close_all(); /* End of file... */
 	
-	return 0; /* Never will... */
+	return(0); /* Never will... */
 
 }
 
