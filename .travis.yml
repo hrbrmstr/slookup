@@ -15,10 +15,10 @@ before_install:
 - echo $LANG
 - echo $LC_ALL
 notifications:
+  email:
+    - bob@rud.is
   irc:
     channels:
       - "irc.irccloud.com#builds"
     nick: travisci
     password: Mangrove
-  email:
-    - bob@rud.is

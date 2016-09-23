@@ -24,8 +24,11 @@ Project goals:
 
 This fork of `slookup` has been tested on:
 
-- macOS 10.12 (Sierra)
-- Ubuntu 14.04
+- macOS 10.11 (Travis)
+- macOS 10.12 (local)
+- Ubuntu 14.04 (Travis)
+- Ubuntu 14.04 (local)
+
 
 ### Installation
 
