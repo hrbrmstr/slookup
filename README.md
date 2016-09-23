@@ -1,3 +1,5 @@
+[![](https://travis-ci.org/hrbrmstr/slookup.svg)](https://travis-ci.org/hrbrmstr/slookup)
+
 # slookup - Parallelized fast DNS lookup tool
 
 `slookup` is a simple program to do parallelized DNS lookups in a convenient way (useful for log parsing scripts and one-liners). It reads names (A/MX/NS/TXT/CNAME/SOA lookups) or addresses (in dotted-quad format for PTR) on stdin or from a file and writes the results on stdout. One record per line. It can run up to 128 parallel DNS lookup processes (easily overloading a slow DNS server) which makes for Really Fast lookups for a large number of records. Beware, output is written in the order the DNS replies are received, which is usually different from the input order if parallel lookups are done.
@@ -14,7 +16,7 @@ Project goals:
 - [ ] Specify a pool of nameservers to distribute lookups across
 - [ ] Supoport all DNS record types
 - [ ] Add a progress indicator
-- [x] Tests (basic)
+- [x] Tests
 - [ ] ?? Distributed lookup (i.e. a cluster of `slookup` agents)
 - [ ] ?? R package
 
