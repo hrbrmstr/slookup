@@ -448,16 +448,16 @@ char *lookup_txt(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
 }
 
-// Issue MX, NS or CNAME queries
+// Issue MX
 //
 // Lumped together as their response formats are similar
 // 
-// @param qtype type of query Q_MX, Q_NS
+// @param qtype type of query 
 // @param s,qs original query string (host or IP)
 // @param rs string to output
 // @param rslen max storage space for rs
 // @return result of query (char *) 
-char *lookup_mxnscn(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+char *lookup_mx(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 
 	union {
 		HEADER hdr;
@@ -500,7 +500,7 @@ char *lookup_mxnscn(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 			continue;
 		}
 		
-		if (type == T_MX) GETSHORT(pref, p);
+		GETSHORT(pref, p);
 			
 		if ((n = dn_expand(res.buf, eom, p, (char *)buf, MAXDNAME)) < 0) {
 			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
@@ -508,12 +508,143 @@ char *lookup_mxnscn(u_short qtype, char *s, char *qs, char *rs, int rslen) {
 		}
 		p += n;
 		
-		if (type == T_MX)
-			snprintf(rs + strlen(rs), rslen - strlen(rs), " MX %d %s", pref, buf);
-		if (type == T_CNAME)
-			snprintf(rs + strlen(rs), rslen - strlen(rs), " CNAME %s", buf);
-		else
-			snprintf(rs + strlen(rs), rslen - strlen(rs), " NS %s", buf);
+		snprintf(rs + strlen(rs), rslen - strlen(rs), " MX %d %s", pref, buf);
+			
+		nmx++;
+	}
+	
+	strncat(rs, "\n", rslen);
+	return rs;
+
+}
+
+// Issue NS queries
+//
+// Lumped together as their response formats are similar
+// 
+// @param qtype type of query 
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
+char *lookup_ns(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
+	union {
+		HEADER hdr;
+		u_char buf[PACKETSZ];
+	} res;
+	u_char buf[MAXLEN];
+	int reslen;
+	u_char *p, *eom;
+	int nmx, n;
+	int maxmx = 30;
+	u_short type, dclass, dlen;
+	uint32_t ttl;
+	
+	if ((reslen = res_query(s, C_IN, qtype, (unsigned char *)&res, sizeof(res))) < 0) {
+		snprintf(rs, rslen, "%s - %s\n", qs, h_strerror(h_errno));
+		return(rs);
+	}
+	
+	eom = res.buf + reslen;
+	p = res.buf + sizeof(HEADER);
+	
+	int ancount = ntohs(res.hdr.ancount);
+	// int qdcount = ntohs(res.hdr.qdcount);
+	
+	if (res.hdr.rcode != NOERROR || ancount == 0) {
+		snprintf(rs, rslen, "%s - trouble: %s\n", qs, h_strerror(h_errno));
+		return rs;
+	}
+	
+	snprintf(rs, rslen, "%s +", qs);
+	
+	p += skipname(res.buf, p, eom) + QFIXEDSZ;
+	
+	nmx = 0;
+	while ((--ancount >= 0) && (p < eom) && (nmx < maxmx-1)) {
+		p += skiptodata(res.buf, p, &type, &dclass, &ttl, &dlen, eom);
+		
+		if (type != qtype) {
+			p += dlen;
+			continue;
+		}
+		
+		if ((n = dn_expand(res.buf, eom, p, (char *)buf, MAXDNAME)) < 0) {
+			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
+			return rs;
+		}
+		p += n;
+		
+  	snprintf(rs + strlen(rs), rslen - strlen(rs), " NS %s", buf);
+			
+		nmx++;
+	}
+	
+	strncat(rs, "\n", rslen);
+	return rs;
+
+}
+
+// Issue NAME queries
+//
+// Lumped together as their response formats are similar
+// 
+// @param qtype type of query 
+// @param s,qs original query string (host or IP)
+// @param rs string to output
+// @param rslen max storage space for rs
+// @return result of query (char *) 
+char *lookup_cname(u_short qtype, char *s, char *qs, char *rs, int rslen) {
+
+	union {
+		HEADER hdr;
+		u_char buf[PACKETSZ];
+	} res;
+	u_char buf[MAXLEN];
+	int reslen;
+	u_char *p, *eom;
+	int nmx, n;
+	int maxmx = 30;
+	u_short type, dclass, dlen;
+	uint32_t ttl;
+	
+	if ((reslen = res_query(s, C_IN, qtype, (unsigned char *)&res, sizeof(res))) < 0) {
+		snprintf(rs, rslen, "%s - %s\n", qs, h_strerror(h_errno));
+		return(rs);
+	}
+	
+	eom = res.buf + reslen;
+	p = res.buf + sizeof(HEADER);
+	
+	int ancount = ntohs(res.hdr.ancount);
+	// int qdcount = ntohs(res.hdr.qdcount);
+	
+	if (res.hdr.rcode != NOERROR || ancount == 0) {
+		snprintf(rs, rslen, "%s - trouble: %s\n", qs, h_strerror(h_errno));
+		return rs;
+	}
+	
+	snprintf(rs, rslen, "%s +", qs);
+	
+	p += skipname(res.buf, p, eom) + QFIXEDSZ;
+	
+	nmx = 0;
+	while ((--ancount >= 0) && (p < eom) && (nmx < maxmx-1)) {
+		p += skiptodata(res.buf, p, &type, &dclass, &ttl, &dlen, eom);
+		
+		if (type != qtype) {
+			p += dlen;
+			continue;
+		}
+			
+		if ((n = dn_expand(res.buf, eom, p, (char *)buf, MAXDNAME)) < 0) {
+			snprintf(rs, rslen, "%s - dn_expand failed\n", qs);
+			return rs;
+		}
+		p += n;
+		
+		snprintf(rs + strlen(rs), rslen - strlen(rs), " CNAME %s", buf);
 			
 		nmx++;
 	}
@@ -554,11 +685,11 @@ char *lookup(int qtype, char *qs) {
 		return(rs);
 		
 	case Q_MX:
-		lookup_mxnscn(T_MX, s, qs, rs, MAXLEN);
+		lookup_mx(T_MX, s, qs, rs, MAXLEN);
 		return(rs);
 		
 	case Q_NS:
-		lookup_mxnscn(T_NS, s, qs, rs, MAXLEN);
+		lookup_ns(T_NS, s, qs, rs, MAXLEN);
 		return(rs);
 
 	case Q_TXT:
@@ -566,7 +697,7 @@ char *lookup(int qtype, char *qs) {
 	  return(rs);
 
 	case Q_CNAME:
-	  lookup_mxnscn(T_CNAME, s, qs, rs, MAXLEN);
+	  lookup_cname(T_CNAME, s, qs, rs, MAXLEN);
 	  return(rs);
 
 	case Q_SOA:
